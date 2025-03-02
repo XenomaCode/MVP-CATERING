@@ -49,6 +49,8 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
   const [items, setItems] = useState<EventItem[]>([]);
   const [error, setError] = useState("");
   
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin");
@@ -112,7 +114,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
     setItems(updatedItems);
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     
@@ -148,8 +150,9 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
       const updatedEvent = await response.json();
       setEvent(updatedEvent);
       setIsEditing(false);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: Error | unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      setError(errorMessage);
     }
   };
   
@@ -174,26 +177,18 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
     }
   };
   
-  const generatePDF = async () => {
-    try {
-      const response = await fetch(`/api/events/${params.id}/pdf`, {
-        method: "GET",
-      });
-      
-      if (!response.ok) throw new Error("Error generando PDF");
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `evento-${params.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (error) {
-      console.error("Error al generar PDF:", error);
-      alert("Error al generar PDF");
-    }
+  const generatePDF = () => {
+    // Mostrar indicador de carga
+    setIsGeneratingPdf(true);
+    
+    // Abrir el PDF en una nueva pestaña
+    const pdfUrl = `/api/events/${params.id}/pdf`;
+    window.open(pdfUrl, '_blank');
+    
+    // Ocultar indicador de carga después de un breve retraso
+    setTimeout(() => {
+      setIsGeneratingPdf(false);
+    }, 1000);
   };
   
   if (loading) {
@@ -217,12 +212,30 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             Volver
           </button>
           
-          <button
-            onClick={generatePDF}
-            className="bg-yellow-500 text-white px-3 py-1 rounded"
-          >
-            Generar PDF
-          </button>
+          <div className="relative">
+            <button
+              onClick={generatePDF}
+              disabled={isGeneratingPdf}
+              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md shadow-md transition duration-200 flex items-center space-x-2 disabled:opacity-70"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Generando...</span>
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
+                  </svg>
+                  <span>Generar PDF</span>
+                </>
+              )}
+            </button>
+          </div>
           
           {!isEditing && (
             <>
